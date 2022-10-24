@@ -18,7 +18,7 @@ Finally, we can run the codes using the following command:
 
 To run the MCL (joint training):
 
-     python main_mcl.py --mib cmib --dataset mosi --train_batch_size 35 --n_epochs 50
+     python main_mcl.py --dataset mosi --train_batch_size 35 --n_epochs 50
 
 
 Currently two datasets are provided, i.e., mosi and mosei (please refer to https://github.com/A2Zadeh/CMU-MultimodalSDK for more details about the datasets). To run with mosei dataset, you should firstly open the global_configs.py, and then change the VISUAL_DIM to 47. We download the datasets by running (https://github.com/WasifurRahman/BERT_multimodal_transformer):
