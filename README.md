@@ -31,4 +31,4 @@ Currently two datasets are provided, i.e., mosi and mosei (please refer to https
 
 Finally, we can run the code using the following commands (change the mib parameter to your desired one):
 
-     python main_mcl.py --dataset mosei --train_batch_size 40 --n_epochs 50
+     python main_mcl.py --dataset mosei --train_batch_size 40 --n_epochs 50 --gamma 1 --d_l 50
