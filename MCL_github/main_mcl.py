@@ -1,11 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
 import argparse
-import csv
 import os
 import random
 import pickle
-import sys
 import numpy as np
 from typing import *
 
@@ -30,12 +28,13 @@ from transformers.optimization import AdamW
 from argparse_utils import str2bool, seed
 from global_configs import ACOUSTIC_DIM, VISUAL_DIM, DEVICE
 from mcl import MCL
+#from mcts import MCL
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--dataset", type=str,
                     choices=["mosi", "mosei"], default="mosi")
 parser.add_argument("--max_seq_length", type=int, default=50)
-parser.add_argument("--train_batch_size", type=int, default=48)
+parser.add_argument("--train_batch_size", type=int, default=35)
 parser.add_argument("--dev_batch_size", type=int, default=128)
 parser.add_argument("--test_batch_size", type=int, default=128)
 parser.add_argument("--n_epochs", type=int, default=50)
@@ -48,13 +47,23 @@ parser.add_argument(
     default="bert-base-uncased",
 )
 parser.add_argument("--learning_rate", type=float, default=2e-5)
+parser.add_argument("--correlation_lr", type=float, default=1e-6)
 parser.add_argument("--gradient_accumulation_step", type=int, default=1)
 parser.add_argument("--warmup_proportion", type=float, default=0.1)
 parser.add_argument("--seed", type=int, default=5576)
 parser.add_argument("--d_l", type=int, default=40)
 parser.add_argument("--ratio", type=int, default=4)
-parser.add_argument("--alpha", type=float, default=1e-5)
-
+parser.add_argument("--alpha", type=float, default=1e-1)
+parser.add_argument("--gamma", type=float, default=10.39)
+parser.add_argument("--attn_dropout", type=float, default=0.5)
+parser.add_argument("--num_heads", type=int, default=5)
+parser.add_argument("--relu_dropout", type=float, default=0.3)
+parser.add_argument("--res_dropout", type=float, default=0.3)
+parser.add_argument("--embed_dropout", type=float, default=0.3)
+parser.add_argument("--layers", type=int, default=3)
+parser.add_argument("--load", type=int, default=0)
+parser.add_argument("--test", type=int, default=0)   ####test or not
+parser.add_argument("--model_path", type=str, default='mcl.pth')
 args = parser.parse_args()
 
 
@@ -118,8 +127,6 @@ def convert_to_features(examples, max_seq_length, tokenizer):
 
         if args.model == "bert-base-uncased":
             prepare_input = prepare_bert_input
-        elif args.model == "xlnet-base-cased":
-            prepare_input = prepare_xlnet_input
 
         input_ids, visual, acoustic, input_mask, segment_ids = prepare_input(
             tokens, visual, acoustic, tokenizer
@@ -290,16 +297,21 @@ def prep_for_training(num_train_optimization_steps: int):
 
     if args.model == "bert-base-uncased":
         model = MCL.from_pretrained(
-            args.model, multimodal_config=multimodal_config, num_labels=1,
+            args.model, multimodal_config=multimodal_config, num_labels=1, args = args,
         )
+
+      #  model = MCL.from_pretrained(
+      #      args.model, multimodal_config=multimodal_config, num_labels=1,
+      #  )
    
 
     total_para = 0
     for param in model.parameters():
         total_para += np.prod(param.size())
     print('total parameter for the model: ', total_para)
-
-
+    
+    if args.load:
+        model.load_state_dict(torch.load(args.model_path))
 
     model.to(DEVICE)
 
@@ -309,7 +321,7 @@ def prep_for_training(num_train_optimization_steps: int):
 def train_epoch(model: nn.Module, train_dataloader: DataLoader):
     model.train()
     tr_loss = 0
-    nb_tr_examples, nb_tr_steps = 0, 0
+    nb_tr_steps = 0
     for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
         batch = tuple(t.to(DEVICE) for t in batch)
         input_ids, visual, acoustic, input_mask, segment_ids, label_ids = batch
@@ -333,12 +345,8 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader):
         if args.gradient_accumulation_step > 1:
             loss = loss / args.gradient_accumulation_step
 
-     
-
         tr_loss += loss.item()
         nb_tr_steps += 1
-
-       
 
     return tr_loss / nb_tr_steps
 
@@ -346,7 +354,7 @@ def train_epoch(model: nn.Module, train_dataloader: DataLoader):
 def eval_epoch(model: nn.Module, dev_dataloader: DataLoader):
     model.eval()
     dev_loss = 0
-    nb_dev_examples, nb_dev_steps = 0, 0
+    nb_dev_steps = 0
     with torch.no_grad():
         for step, batch in enumerate(tqdm(dev_dataloader, desc="Iteration")):
             batch = tuple(t.to(DEVICE) for t in batch)
@@ -439,8 +447,6 @@ def test_score_model(model: nn.Module, test_dataloader: DataLoader, use_zero=Fal
     preds = preds[non_zeros]
     y_test = y_test[non_zeros]
 
-
-
     mae = np.mean(np.absolute(preds - y_test))
     corr = np.corrcoef(preds, y_test)[0][1]
 
@@ -463,6 +469,17 @@ def train(
     valid_losses = []
     test_accuracies = []
     best_loss = 10
+    if args.test:
+        test_acc, test_mae, test_corr, test_f_score, test_acc7 = test_score_model(
+            model, test_data_loader
+        )
+        print(
+            "best mae:{:.4f}, acc:{:.4f}, acc7:{:.4f}, f1:{:.4f}, corr:{:.4f}".format(
+                test_mae, test_acc, test_acc7, test_f_score, test_corr
+            )
+        )
+        return
+
     for epoch_i in range(int(args.n_epochs)):
         train_loss = train_epoch(model, train_dataloader)
         valid_loss = eval_epoch(model, validation_dataloader)
@@ -494,6 +511,7 @@ def train(
             best_corr = test_corr
             best_f_score = test_f_score
             best_acc_7 = test_acc7
+            torch.save(model.state_dict(), args.model_path)
         print(
             "best mae:{:.4f}, acc:{:.4f}, acc7:{:.4f}, f1:{:.4f}, corr:{:.4f}".format(
                 best_mae, best_acc, best_acc_7, best_f_score, best_corr
