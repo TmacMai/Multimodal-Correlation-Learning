@@ -1,6 +1,6 @@
 # Multimodal-Correlation-Learning
 
-Here is the code for the paper "Excavating Multimodal Correlation for Representation Learning". The paper is submitted to Information Fusion.
+Here is the code for the paper "Excavating Multimodal Correlation for Representation Learning". The paper is accepted by Information Fusion.
 
 Firstly, we would like to express our gratitude to the authors of MAG-BERT (https://github.com/WasifurRahman/BERT_multimodal_transformer). Their codes are of great help to our research.
 
