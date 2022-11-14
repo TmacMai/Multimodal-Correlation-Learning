@@ -34,3 +34,5 @@ Finally, we can run the code using the following commands (change the mib parame
      python main_mcl.py --dataset mosei --train_batch_size 40 --n_epochs 50 --gamma 1 --d_l 50
      
 We will continue to update the codes.
+
+Notbly, following https://github.com/WasifurRahman/BERT_multimodal_transformer, when calculating corr and MAE, we do not use the neutral utterances.
