@@ -421,18 +421,21 @@ class MCL(BertPreTrainedModel):
         ####################correlation learning################################
         #loss_1 = self.generate_supervised_loss(output_l, output_a, output_v, label_ids)  ###unsupervised correlation learning
         loss_1 = self.generate_supervised_trimodal_loss(output_l, output_a, output_v, label_ids)  ####supervised correlation learning
-
+        
+        ###################fusion##############################################
+     
+        fusion = torch.cat([output_l, output_a, output_v], dim = -1)
+        outputf = self.classifier(fusion)
+        
+        #####update according to correlation loss
         self.optimizer_c3.zero_grad()
         self.optimizer_lav.zero_grad()
         loss_1.backward(retain_graph = True)
         self.optimizer_lav.step()
         self.optimizer_c3.step()
 
-       ###################fusion##############################################
-     
-        fusion = torch.cat([output_l, output_a, output_v], dim = -1)
-        outputf = self.classifier(fusion)
 
+        ############update according to main task loss
         self.optimizer_all.zero_grad()
         loss_all = self.loss(outputf.view(-1), label_ids.view(-1))
         loss_all.backward()
