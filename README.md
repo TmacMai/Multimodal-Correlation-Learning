@@ -36,3 +36,15 @@ Finally, we can run the code using the following commands (change the mib parame
 We will continue to update the codes.
 
 Notbly, following https://github.com/WasifurRahman/BERT_multimodal_transformer, when calculating corr and MAE, we do not use the neutral utterances.
+
+If you find our code useful, please cite our paper:
+
+@article{mai2023excavating,
+  title={Excavating multimodal correlation for representation learning},
+  author={Mai, Sijie and Sun, Ya and Zeng, Ying and Hu, Haifeng},
+  journal={Information Fusion},
+  volume={91},
+  pages={542--555},
+  year={2023},
+  publisher={Elsevier}
+}
